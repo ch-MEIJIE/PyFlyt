@@ -498,7 +498,8 @@ class QuadX(DroneClass):
         )
 
         # warning, the physics is funky for bounces
-        if len(self.p.getContactPoints()) == 0:
+        collision_test = self.p.getContactPoints()
+        if collision_test is not None and len(collision_test) == 0:
             self.p.applyExternalTorque(self.Id, -1, drag_pqr, self.p.LINK_FRAME)
 
     def update_state(self) -> None:
