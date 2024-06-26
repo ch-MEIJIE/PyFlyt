@@ -39,7 +39,7 @@ env = Aviary(start_pos=start_pos, start_orn=start_orn, render=True, drone_type="
 
 # register our custom controller for the first drone, this controller is id 8, and is based off 6
 env.drones[0].register_controller(
-    controller_constructor=CustomController, controller_id=8, base_mode=6
+    controller_constructor=CustomController, controller_id=8, base_mode=7
 )
 
 # set to our new custom controller
