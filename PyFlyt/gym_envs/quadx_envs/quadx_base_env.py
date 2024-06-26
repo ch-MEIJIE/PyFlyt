@@ -172,6 +172,7 @@ class QuadXBaseEnv(gymnasium.Env):
             self.render_mode
         )
         drone_options["camera_fps"] = int(120 / self.env_step_ratio)
+        # drone_options["camera_fps"] = int(120 / 6)
 
         # init env
         self.env = Aviary(
