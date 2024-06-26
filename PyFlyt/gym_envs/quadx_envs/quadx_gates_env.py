@@ -94,6 +94,7 @@ class QuadXGatesEnv(QuadXBaseEnv):
                         shape=(3,),
                         dtype=np.float64,
                     ),
+                    stack=True,
                 ),
             }
         )
