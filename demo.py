@@ -1,9 +1,11 @@
-import gymnasium
-import PyFlyt.gym_envs # noqa
-import numpy as np
 import time
 
-env = gymnasium.make("PyFlyt/QuadX-UVRZ-Gates-v2", render_mode="human", num_targets=1,agent_hz=2)
+import gymnasium
+
+import PyFlyt.gym_envs  # noqa
+
+env = gymnasium.make("PyFlyt/QuadX-UVRZ-Gates-v2",
+                     render_mode="human", num_targets=1, agent_hz=2)
 obs = env.reset()
 
 termination = False
@@ -23,7 +25,8 @@ while not termination or truncation:
     #     action = np.int64(action_choices[action_ptr])
     #     action_ptr += 1
     #     print(action)
-    observation, reward, termination, truncation, info = env.step(action=action)
+    observation, reward, termination, truncation, info = env.step(
+        action=action)
     print("Velocity: ", observation['attitude'][10: 13])
     # print("Info: ", info)
     step += 1

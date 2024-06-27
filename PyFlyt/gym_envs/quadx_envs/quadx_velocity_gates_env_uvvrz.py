@@ -7,24 +7,43 @@ import os
 from typing import Any, Literal
 
 import numpy as np
-from scipy.stats import norm
 import pybullet as p
 import pybullet_data
 from gymnasium import spaces
+from scipy.stats import norm
 
 from PyFlyt.gym_envs.quadx_envs.quadx_base_env import QuadXBaseEnv
-from PyFlyt.core.abstractions import ControlClass
 
 GATES_POSITIONS = [
-    [2.0, 0.0, 1],
-    [4.0, 0.5, 1],
-    [4.0, 1.5, 1]
+    [1.5, 0.0, 1],
+    [3.0, 0.0, 1],
+    [3.0, 1.5, 1],
+    # [3.0, 3.0, 1],
+    # [3.0, 4.5, 1]
+]
+
+GATE_LEFT_DOUNDARY = [
+    [1.5, 0.25, 1],
+    [3-0.25/math.sqrt(2), 0.25/math.sqrt(2), 1],
+    [2.75, 1.5, 1],
+    # [2.75, 3.0, 1],
+    # [2.75, 4.5, 1]
+]
+
+GATE_RIGHT_DOUNDARY = [
+    [1.5, -0.25, 1],
+    [3+0.25/math.sqrt(2), -0.25/math.sqrt(2), 1],
+    [3.25, 1.5, 1],
+    # [3.25, 3.0, 1],
+    # [3.25, 4.5, 1]
 ]
 
 GATES_RADIUS = [
     [0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.707*math.pi],
-    [0.0, 0.0, 0.5*math.pi]
+    [0.0, 0.0, -0.707*math.pi],
+    [0.0, 0.0, 0.5*math.pi],
+    # [0.0, 0.0, 0.5*math.pi],
+    # [0.0, 0.0, 0.5*math.pi]
 ]
 
 ACTIONS = {
@@ -186,6 +205,15 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
                     ),
                     stack=True,
                 ),
+                "target_delta_bound": spaces.Sequence(
+                    space=spaces.Box(
+                        low=-np.inf,
+                        high=np.inf,
+                        shape=(3,),
+                        dtype=np.float64,
+                    ),
+                    stack=True,
+                )
             }
         )
 
@@ -205,6 +233,8 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.camera_resolution = camera_resolution
         self.num_targets = num_targets
         self.max_gate_distance = 3.0
+        self.gate_right_bound = GATE_RIGHT_DOUNDARY
+        self.gate_left_bound = GATE_LEFT_DOUNDARY
 
     def end_reset(
         self, seed: None | int = None, options: None | dict[str, Any] = dict()
@@ -344,9 +374,19 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         target_deltas = np.matmul(rotation, (self.targets - lin_pos).T).T
         self.dis_error_scalar = np.linalg.norm(target_deltas[0])
 
+        # drone to the next gate's edge
+        target_delta_bound = np.zeros((2, 3))
+        if len(self.gates) > 0:
+            target_delta_bound[0, :] = np.matmul(
+                rotation,
+                (np.array(self.gate_right_bound[0]) - lin_pos).T).T
+            target_delta_bound[1, :] = np.matmul(
+                rotation,
+                (np.array(self.gate_left_bound[0]) - lin_pos).T).T
+
         # combine everything
         new_state: dict[
-            Literal["attitude", "target_deltas"], np.ndarray
+            Literal["attitude", "target_deltas", "target_delta_bound"], np.ndarray
         ] = dict()
         if self.angle_representation == 0:
             new_state["attitude"] = np.array(
@@ -371,6 +411,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
 
         # distances to targets
         new_state["target_deltas"] = target_deltas
+        new_state["target_delta_bound"] = target_delta_bound
 
         self.state: dict[
             Literal["attitude", "target_deltas"], np.ndarray
@@ -444,6 +485,8 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
             if len(self.targets) > 1:
                 # still have targets to go
                 self.targets = self.targets[1:]
+                self.gate_left_bound = self.gate_left_bound[1:]
+                self.gate_right_bound = self.gate_right_bound[1:]
             else:
                 self.info["env_complete"] = True
                 self.termination = self.termination or True
