@@ -135,7 +135,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
 
     def __init__(
         self,
-        num_targets: int = len(GATES_POSITIONS),
+        targets_num: int = len(GATES_POSITIONS),
         flight_mode: int = 4,
         goal_reach_distance: float = 0.21,
         gate_height: float = 1.5,
@@ -205,15 +205,12 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
                     ),
                     stack=True,
                 ),
-                "target_delta_bound": spaces.Sequence(
-                    space=spaces.Box(
+                "target_delta_bound": spaces.Box(
                         low=-np.inf,
                         high=np.inf,
-                        shape=(3,),
+                        shape=(6,),
                         dtype=np.float64,
                     ),
-                    stack=True,
-                )
             }
         )
 
@@ -231,7 +228,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         file_dir = os.path.dirname(os.path.realpath(__file__))
         self.gate_obj_dir = os.path.join(file_dir, "../models/race_gate.urdf")
         self.camera_resolution = camera_resolution
-        self.num_targets = num_targets
+        self.targets_num = targets_num
         self.max_gate_distance = 1.5
         self.gate_right_bound = GATE_RIGHT_DOUNDARY
         self.gate_left_bound = GATE_LEFT_DOUNDARY
@@ -376,12 +373,12 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.dis_error_scalar = np.linalg.norm(target_deltas[0])
 
         # drone to the next gate's edge
-        target_delta_bound = np.zeros((2, 3))
+        target_delta_bound = np.zeros((6,))
         if len(self.gates) > 0:
-            target_delta_bound[0, :] = np.matmul(
+            target_delta_bound[0:3] = np.matmul(
                 rotation,
                 (np.array(self.gate_right_bound[0]) - lin_pos).T).T
-            target_delta_bound[1, :] = np.matmul(
+            target_delta_bound[3:6] = np.matmul(
                 rotation,
                 (np.array(self.gate_left_bound[0]) - lin_pos).T).T
 
