@@ -70,7 +70,7 @@ class BCIsimulator():
         self.decision_vec = np.zeros((overlap_time, action_len))
         self.ptr = 0
         self.one_hot_mat = np.eye(action_len)
-        self.last_velocity_vec = list(np.zeros((1, 4)))
+        self.last_velocity_vec = np.zeros((4,))
 
     def encode(self, action):
         self.ptr += 1
@@ -105,9 +105,8 @@ class BCIsimulator():
     def reset(self):
         self.ptr = 0
         self.decision_vec = np.zeros((self.overlap_time, len(ACTIONS)))
+        self.last_velocity_vec = np.zeros((4,))
 
-
-# TODO：action的定义、重写step
 
 class QuadXUVRZGatesEnv(QuadXBaseEnv):
     """QuadX Gates Environment.
@@ -148,7 +147,8 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         agent_hz: int = 10,
         render_mode: None | Literal["human", "rgb_array"] = None,
         render_resolution: tuple[int, int] = (480, 480),
-        action_overlap: int = 4
+        action_overlap: int = 4,
+        seed: None | int = None,
     ):
         """__init__.
 
@@ -232,9 +232,10 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.gate_obj_dir = os.path.join(file_dir, "../models/race_gate.urdf")
         self.camera_resolution = camera_resolution
         self.num_targets = num_targets
-        self.max_gate_distance = 3.0
+        self.max_gate_distance = 1.5
         self.gate_right_bound = GATE_RIGHT_DOUNDARY
         self.gate_left_bound = GATE_LEFT_DOUNDARY
+        self.seed = seed
 
     def end_reset(
         self, seed: None | int = None, options: None | dict[str, Any] = dict()
@@ -386,7 +387,8 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
 
         # combine everything
         new_state: dict[
-            Literal["attitude", "target_deltas", "target_delta_bound"], np.ndarray
+            Literal["attitude", "target_deltas",
+                    "target_delta_bound"], np.ndarray
         ] = dict()
         if self.angle_representation == 0:
             new_state["attitude"] = np.array(
