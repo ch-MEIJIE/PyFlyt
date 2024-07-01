@@ -445,7 +445,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.velocity_vec = sum_velocity
 
         # reset the reward and set the action
-        self.reward = -0.1
+        self.reward = -0.5
         self.env.set_setpoint(0, setpoint=self.velocity_vec)
 
         # step through env, the internal env updates a few steps before the outer env
@@ -499,7 +499,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
 
             # shift the gates and recolour the reached one
             self.colour_dead_gate(self.gates[0])
-            self.gates = self.gates[1:]
-
-            # colour the new target
-            self.colour_first_gate()
+            if len(self.gates) > 1:
+                self.gates = self.gates[1:]
+                # colour the new target
+                self.colour_first_gate()
