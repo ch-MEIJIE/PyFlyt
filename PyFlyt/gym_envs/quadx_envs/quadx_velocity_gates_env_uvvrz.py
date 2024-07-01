@@ -233,6 +233,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.gate_right_bound = GATE_RIGHT_DOUNDARY
         self.gate_left_bound = GATE_LEFT_DOUNDARY
         self.seed = seed
+        self.target_reached_count = 0
 
     def end_reset(
         self, seed: None | int = None, options: None | dict[str, Any] = dict()
@@ -279,6 +280,10 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.gates = []
         self.targets = []
         self.generate_gates()
+        # reset the bounds
+        self.gate_left_bound = GATE_LEFT_DOUNDARY
+        self.gate_right_bound = GATE_RIGHT_DOUNDARY
+        self.target_reached_count = 0
 
         super().end_reset(seed, options)
 
@@ -480,6 +485,8 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
 
         # target reached
         if self.target_reached:
+            self.target_reached_count += 1
+            print(f"Target reached: {self.target_reached_count}")
             self.reward += 100.0
             if len(self.targets) > 1:
                 # still have targets to go
