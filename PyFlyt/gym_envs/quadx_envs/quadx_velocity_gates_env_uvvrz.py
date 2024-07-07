@@ -206,11 +206,11 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
                     stack=True,
                 ),
                 "target_delta_bound": spaces.Box(
-                        low=-np.inf,
-                        high=np.inf,
-                        shape=(6,),
-                        dtype=np.float64,
-                    ),
+                    low=-np.inf,
+                    high=np.inf,
+                    shape=(6,),
+                    dtype=np.float64,
+                ),
             }
         )
 
@@ -445,7 +445,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.velocity_vec = sum_velocity
 
         # reset the reward and set the action
-        self.reward = -0.5
+        self.reward = -0.1*self.step_count
         self.env.set_setpoint(0, setpoint=self.velocity_vec)
 
         # step through env, the internal env updates a few steps before the outer env
@@ -483,6 +483,9 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
             self.info["out_of_bounds"] = True
             self.termination = self.termination or True
 
+        # distance reward
+        self.reward += 1.0/(self.dis_error_scalar+1)
+
         # target reached
         if self.target_reached:
             self.target_reached_count += 1
@@ -494,6 +497,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
                 self.gate_left_bound = self.gate_left_bound[1:]
                 self.gate_right_bound = self.gate_right_bound[1:]
             else:
+                self.reward += 500.0
                 self.info["env_complete"] = True
                 self.termination = self.termination or True
 
