@@ -445,7 +445,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.velocity_vec = sum_velocity
 
         # reset the reward and set the action
-        self.reward = -0.1*self.step_count
+        self.reward = -0.01*self.step_count
         self.env.set_setpoint(0, setpoint=self.velocity_vec)
 
         # step through env, the internal env updates a few steps before the outer env
@@ -460,6 +460,8 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
             self.compute_state()
             self.compute_term_trunc_reward()
 
+        # distance reward
+        self.reward += 1.0/(self.dis_error_scalar+1)
         # increment step count
         self.step_count += 1
 
@@ -482,9 +484,6 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
             self.reward += -100.0
             self.info["out_of_bounds"] = True
             self.termination = self.termination or True
-
-        # distance reward
-        self.reward += 1.0/(self.dis_error_scalar+1)
 
         # target reached
         if self.target_reached:
