@@ -263,6 +263,8 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
             seed: seed to pass to the base environment.
             options: None
         """
+        if seed is None:
+            seed = self.seed
         aviary_options = dict()
         aviary_options["use_camera"] = True
         aviary_options["use_gimbal"] = False
