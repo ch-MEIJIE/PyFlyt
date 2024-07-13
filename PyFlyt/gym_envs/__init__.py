@@ -28,6 +28,11 @@ register(
     entry_point="PyFlyt.gym_envs.quadx_envs.quadx_velocity_gates_env_uvvrz:QuadXUVRZGatesEnv",
 )
 
+register(
+    id="PyFlyt/QuadX-UVRZ-Render-Gates-v1",
+    entry_point="PyFlyt.gym_envs.quadx_envs.quadx_gates_env_uvvrz_render:QuadXUVRZGatesRenderEnv",
+)
+
 # Fixedwing Envs
 register(
     id="PyFlyt/Fixedwing-Waypoints-v2",

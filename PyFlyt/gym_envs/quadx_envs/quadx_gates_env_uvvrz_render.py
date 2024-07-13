@@ -108,7 +108,7 @@ class BCIsimulator():
         self.last_velocity_vec = np.zeros((4,))
 
 
-class QuadXUVRZGatesEnv(QuadXBaseEnv):
+class QuadXUVRZGatesRenderEnv(QuadXBaseEnv):
     """QuadX Gates Environment.
 
     Actions are vp, vq, vr, T, ie: angular rates and thrust
@@ -462,6 +462,8 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
             # compute state and done
             self.compute_state()
             self.compute_term_trunc_reward()
+        
+        self.info['image'] = self.env.drones[0].rgbaImg.astype(np.uint8)
 
         # distance reward
         self.reward += 1.0/(self.dis_error_scalar+1)
