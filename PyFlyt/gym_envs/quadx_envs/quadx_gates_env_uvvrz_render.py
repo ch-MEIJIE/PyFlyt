@@ -53,8 +53,8 @@ ACTIONS = {
     "3": [-1.0, 0.0, 0.0, 0.0],  # Left
     # "4": [0.0, 0.0, 1.0, 0.0],   # Up
     # "5": [0.0, 0.0, -1.0, 0.0],  # Down
-    "4": [0.0, 0.0, 0.0, 1.0],   # CW
-    "5": [0.0, 0.0, 0.0, -1.0],  # CCW
+    "4": [0.0, 0.0, 0.0, -1.0],   # CW
+    "5": [0.0, 0.0, 0.0, 1.0],  # CCW
     "6": [0.0, 0.0, 0.0, 0.0],   # Hover
     "7": [0.0, 0.0, 0.0, 0.0],   # Keep
 }
@@ -289,6 +289,7 @@ class QuadXUVRZGatesRenderEnv(QuadXBaseEnv):
         self.target_reached_count = 0
 
         super().end_reset(seed, options)
+        self.info['image'] = self.env.drones[0].rgbaImg.astype(np.uint8)
 
         return self.state, self.info
 
@@ -464,6 +465,7 @@ class QuadXUVRZGatesRenderEnv(QuadXBaseEnv):
             self.compute_term_trunc_reward()
         
         self.info['image'] = self.env.drones[0].rgbaImg.astype(np.uint8)
+        self.info['vel_vec'] = self.velocity_vec
 
         # distance reward
         self.reward += 1.0/(self.dis_error_scalar+1)
