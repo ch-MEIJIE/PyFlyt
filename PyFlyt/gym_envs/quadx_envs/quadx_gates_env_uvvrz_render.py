@@ -7,24 +7,43 @@ import os
 from typing import Any, Literal
 
 import numpy as np
-from scipy.stats import norm
 import pybullet as p
 import pybullet_data
 from gymnasium import spaces
+from scipy.stats import norm
 
 from PyFlyt.gym_envs.quadx_envs.quadx_base_env import QuadXBaseEnv
-from PyFlyt.core.abstractions import ControlClass
 
 GATES_POSITIONS = [
-    [2.0, 0.0, 1],
-    [4.0, 0.5, 1],
-    [4.0, 1.5, 1]
+    [1.5, 0.0, 1],
+    [3.0, 0.0, 1],
+    [3.0, 1.5, 1],
+    # [3.0, 3.0, 1],
+    # [3.0, 4.5, 1]
+]
+
+GATE_LEFT_DOUNDARY = [
+    [1.5, 0.25, 1],
+    [3-0.25/math.sqrt(2), 0.25/math.sqrt(2), 1],
+    [2.75, 1.5, 1],
+    # [2.75, 3.0, 1],
+    # [2.75, 4.5, 1]
+]
+
+GATE_RIGHT_DOUNDARY = [
+    [1.5, -0.25, 1],
+    [3+0.25/math.sqrt(2), -0.25/math.sqrt(2), 1],
+    [3.25, 1.5, 1],
+    # [3.25, 3.0, 1],
+    # [3.25, 4.5, 1]
 ]
 
 GATES_RADIUS = [
     [0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.707*math.pi],
-    [0.0, 0.0, 0.5*math.pi]
+    [0.0, 0.0, -0.707*math.pi],
+    [0.0, 0.0, 0.5*math.pi],
+    # [0.0, 0.0, 0.5*math.pi],
+    # [0.0, 0.0, 0.5*math.pi]
 ]
 
 ACTIONS = {
@@ -32,12 +51,12 @@ ACTIONS = {
     "1": [0.0, -1.0, 0.0, 0.0],  # Backward
     "2": [1.0, 0.0, 0.0, 0.0],   # Right
     "3": [-1.0, 0.0, 0.0, 0.0],  # Left
-    "4": [0.0, 0.0, 1.0, 0.0],   # Up
-    "5": [0.0, 0.0, -1.0, 0.0],  # Down
-    "6": [0.0, 0.0, 0.0, -1.0],   # CW
-    "7": [0.0, 0.0, 0.0, 1.0],  # CCW
-    "8": [0.0, 0.0, 0.0, 0.0],   # Hover
-    "9": [0.0, 0.0, 0.0, 0.0],   # Keep
+    # "4": [0.0, 0.0, 1.0, 0.0],   # Up
+    # "5": [0.0, 0.0, -1.0, 0.0],  # Down
+    "4": [0.0, 0.0, 0.0, -1.0],   # CW
+    "5": [0.0, 0.0, 0.0, 1.0],  # CCW
+    "6": [0.0, 0.0, 0.0, 0.0],   # Hover
+    "7": [0.0, 0.0, 0.0, 0.0],   # Keep
 }
 
 
@@ -51,7 +70,7 @@ class BCIsimulator():
         self.decision_vec = np.zeros((overlap_time, action_len))
         self.ptr = 0
         self.one_hot_mat = np.eye(action_len)
-        self.last_velocity_vec = list(np.zeros((1, 4)))
+        self.last_velocity_vec = np.zeros((4,))
 
     def encode(self, action):
         self.ptr += 1
@@ -76,9 +95,9 @@ class BCIsimulator():
             return velocity_vec
 
     def map_decision(self, decision):
-        if decision == 9:
+        if decision == 7:
             return self.last_velocity_vec
-        elif decision == 8:
+        elif decision == 6:
             return list(np.zeros((4,)))
         else:
             return ACTIONS[str(decision)]
@@ -86,11 +105,10 @@ class BCIsimulator():
     def reset(self):
         self.ptr = 0
         self.decision_vec = np.zeros((self.overlap_time, len(ACTIONS)))
+        self.last_velocity_vec = np.zeros((4,))
 
 
-# TODO：action的定义、重写step
-
-class QuadXVelocityGatesEnv(QuadXBaseEnv):
+class QuadXUVRZGatesRenderEnv(QuadXBaseEnv):
     """QuadX Gates Environment.
 
     Actions are vp, vq, vr, T, ie: angular rates and thrust
@@ -117,8 +135,9 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
 
     def __init__(
         self,
-        num_targets: int = len(GATES_POSITIONS),
-        flight_mode: int = 5,
+        targets_num: int = len(GATES_POSITIONS),
+        flight_mode: int = 4,
+        bci_accuracy: float = 0.99,
         goal_reach_distance: float = 0.21,
         gate_height: float = 1.5,
         gate_positions: list[list[float]] = GATES_POSITIONS,
@@ -129,7 +148,8 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
         agent_hz: int = 10,
         render_mode: None | Literal["human", "rgb_array"] = None,
         render_resolution: tuple[int, int] = (480, 480),
-        action_overlap: int = 4
+        action_overlap: int = 4,
+        seed: None | int = None,
     ):
         """__init__.
 
@@ -162,7 +182,7 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
                 same length")
 
         """GYMNASIUM STUFF"""
-        self.action_space = spaces.Discrete(10)
+        self.action_space = spaces.Discrete(8)
         self.combined_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
@@ -186,6 +206,12 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
                     ),
                     stack=True,
                 ),
+                "target_delta_bound": spaces.Box(
+                    low=-np.inf,
+                    high=np.inf,
+                    shape=(6,),
+                    dtype=np.float64,
+                ),
             }
         )
 
@@ -195,7 +221,7 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
         self.gate_radius = gate_radius
         self.goal_reach_distance = goal_reach_distance
 
-        self.bci = BCIsimulator()
+        self.bci = BCIsimulator(accuracy=bci_accuracy)
         self.velocity_buffer = np.zeros((action_overlap, 4))
         self.action_overlap = action_overlap
         self.step_ptr = 0
@@ -203,9 +229,13 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
         file_dir = os.path.dirname(os.path.realpath(__file__))
         self.gate_obj_dir = os.path.join(file_dir, "../models/race_gate.urdf")
         self.camera_resolution = camera_resolution
-        self.num_targets = num_targets
-        self.max_gate_distance = 3.0
-    
+        self.targets_num = targets_num
+        self.max_gate_distance = 1.5
+        self.gate_right_bound = GATE_RIGHT_DOUNDARY
+        self.gate_left_bound = GATE_LEFT_DOUNDARY
+        self.seed = seed
+        self.target_reached_count = 0
+
     def end_reset(
         self, seed: None | int = None, options: None | dict[str, Any] = dict()
     ) -> None:
@@ -234,13 +264,15 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
             seed: seed to pass to the base environment.
             options: None
         """
+        if seed is None:
+            seed = self.seed
         aviary_options = dict()
         aviary_options["use_camera"] = True
         aviary_options["use_gimbal"] = False
         aviary_options["camera_resolution"] = self.camera_resolution
         aviary_options["camera_angle_degrees"] = 15.0
         super().begin_reset(seed, options, aviary_options)
-        self.action = 6
+        self.action = 0
         self.velocity_vec = np.zeros((4,))
         self.step_ptr = 0
         self.bci.reset()
@@ -251,8 +283,13 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
         self.gates = []
         self.targets = []
         self.generate_gates()
+        # reset the bounds
+        self.gate_left_bound = GATE_LEFT_DOUNDARY
+        self.gate_right_bound = GATE_RIGHT_DOUNDARY
+        self.target_reached_count = 0
 
         super().end_reset(seed, options)
+        self.info['image'] = self.env.drones[0].rgbaImg.astype(np.uint8)
 
         return self.state, self.info
 
@@ -277,7 +314,7 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
                     basePosition=gate_pos,
                     baseOrientation=gate_quat,
                     useFixedBase=True,
-                    globalScaling=2
+                    globalScaling=1
                 )
             )
 
@@ -344,9 +381,20 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
         target_deltas = np.matmul(rotation, (self.targets - lin_pos).T).T
         self.dis_error_scalar = np.linalg.norm(target_deltas[0])
 
+        # drone to the next gate's edge
+        target_delta_bound = np.zeros((6,))
+        if len(self.gates) > 0:
+            target_delta_bound[0:3] = np.matmul(
+                rotation,
+                (np.array(self.gate_right_bound[0]) - lin_pos).T).T
+            target_delta_bound[3:6] = np.matmul(
+                rotation,
+                (np.array(self.gate_left_bound[0]) - lin_pos).T).T
+
         # combine everything
         new_state: dict[
-            Literal["attitude", "target_deltas"], np.ndarray
+            Literal["attitude", "target_deltas",
+                    "target_delta_bound"], np.ndarray
         ] = dict()
         if self.angle_representation == 0:
             new_state["attitude"] = np.array(
@@ -371,6 +419,7 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
 
         # distances to targets
         new_state["target_deltas"] = target_deltas
+        new_state["target_delta_bound"] = target_delta_bound
 
         self.state: dict[
             Literal["attitude", "target_deltas"], np.ndarray
@@ -396,10 +445,11 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
         sum_velocity =\
             np.sum(self.velocity_buffer, axis=0, keepdims=False)[
                 [1, 0, 3, 2]] * 0.05
+        sum_velocity[-1] = 1.0
         self.velocity_vec = sum_velocity
 
         # reset the reward and set the action
-        self.reward = -0.1
+        self.reward = -0.01*self.step_count
         self.env.set_setpoint(0, setpoint=self.velocity_vec)
 
         # step through env, the internal env updates a few steps before the outer env
@@ -413,7 +463,12 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
             # compute state and done
             self.compute_state()
             self.compute_term_trunc_reward()
+        
+        self.info['image'] = self.env.drones[0].rgbaImg.astype(np.uint8)
+        self.info['vel_vec'] = self.velocity_vec
 
+        # distance reward
+        self.reward += 1.0/(self.dis_error_scalar+1)
         # increment step count
         self.step_count += 1
 
@@ -439,17 +494,22 @@ class QuadXVelocityGatesEnv(QuadXBaseEnv):
 
         # target reached
         if self.target_reached:
+            self.target_reached_count += 1
+            print(f"Target reached: {self.target_reached_count}")
             self.reward += 100.0
             if len(self.targets) > 1:
                 # still have targets to go
                 self.targets = self.targets[1:]
+                self.gate_left_bound = self.gate_left_bound[1:]
+                self.gate_right_bound = self.gate_right_bound[1:]
             else:
+                self.reward += 500.0
                 self.info["env_complete"] = True
                 self.termination = self.termination or True
 
             # shift the gates and recolour the reached one
             self.colour_dead_gate(self.gates[0])
-            self.gates = self.gates[1:]
-
-            # colour the new target
-            self.colour_first_gate()
+            if len(self.gates) > 1:
+                self.gates = self.gates[1:]
+                # colour the new target
+                self.colour_first_gate()

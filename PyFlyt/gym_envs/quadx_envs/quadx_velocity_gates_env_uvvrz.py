@@ -53,8 +53,8 @@ ACTIONS = {
     "3": [-1.0, 0.0, 0.0, 0.0],  # Left
     # "4": [0.0, 0.0, 1.0, 0.0],   # Up
     # "5": [0.0, 0.0, -1.0, 0.0],  # Down
-    "4": [0.0, 0.0, 0.0, 1.0],   # CW
-    "5": [0.0, 0.0, 0.0, -1.0],  # CCW
+    "4": [0.0, 0.0, 0.0, -1.0],   # CW
+    "5": [0.0, 0.0, 0.0, 1.0],  # CCW
     "6": [0.0, 0.0, 0.0, 0.0],   # Hover
     "7": [0.0, 0.0, 0.0, 0.0],   # Keep
 }
@@ -137,6 +137,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self,
         targets_num: int = len(GATES_POSITIONS),
         flight_mode: int = 4,
+        bci_accuracy: float = 0.99,
         goal_reach_distance: float = 0.21,
         gate_height: float = 1.5,
         gate_positions: list[list[float]] = GATES_POSITIONS,
@@ -220,7 +221,7 @@ class QuadXUVRZGatesEnv(QuadXBaseEnv):
         self.gate_radius = gate_radius
         self.goal_reach_distance = goal_reach_distance
 
-        self.bci = BCIsimulator()
+        self.bci = BCIsimulator(accuracy=bci_accuracy)
         self.velocity_buffer = np.zeros((action_overlap, 4))
         self.action_overlap = action_overlap
         self.step_ptr = 0
