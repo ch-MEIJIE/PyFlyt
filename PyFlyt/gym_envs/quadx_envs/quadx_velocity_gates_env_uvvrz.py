@@ -85,9 +85,9 @@ class BCIsimulator():
             decision = np.argmax(np.sum(self.decision_vec, axis=0))
             decision_confidence = np.max(np.sum(self.decision_vec, axis=0))
             if decision_confidence < self.threshold:
-                # random select a decision from 0~9 except decision
+                # random select a decision from 0~9 expect decision
                 decision = np.random.choice(
-                    [i for i in range(10) if i != decision])
+                    [i for i in range(8) if i != decision])
                 velocity_vec = self.map_decision(decision)
             else:
                 velocity_vec = self.map_decision(decision)
