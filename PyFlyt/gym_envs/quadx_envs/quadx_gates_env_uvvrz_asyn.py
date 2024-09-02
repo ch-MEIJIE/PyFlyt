@@ -479,6 +479,11 @@ class QuadXUVRZGatesAsynEnv(QuadXBaseEnv):
         if self.action == 8:
             # update the frozen_obs with the new state
             self.frozen_obs = self.state
+        else:
+            # update the action in the frozen_obs
+            self.frozen_obs['attitude'][13] = self.action
+            # make the update flag to 0
+            self.frozen_obs['updated'] = 0
 
         # distance reward
         self.reward += 1.0/(self.dis_error_scalar+1)
