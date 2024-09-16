@@ -235,30 +235,13 @@ class QuadXUVRZGatesAsynEnv(QuadXBaseEnv):
         self.gate_left_bound = GATE_LEFT_DOUNDARY
         self.seed = seed
         self.target_reached_count = 0
-        self.frozen_obs = None
+        self.frozen_obs = dict()
         self.update = 1
-
-    def end_reset(
-        self, seed: None | int = None, options: None | dict[str, Any] = dict()
-    ) -> None:
-        """The tailing half of the reset function."""
-        # register all new collision bodies
-        self.env.register_all_new_bodies()
-
-        # set flight mode
-        self.env.set_mode(self.flight_mode)
-        self.env.set_setpoint(0, setpoint=np.zeros([0, 0, 1.5, 0]))
-
-        # wait for env to stabilize
-        for _ in range(120):
-            self.env.step()
-
-        self.compute_state()
 
     def reset(
         self, *, seed: None | int = None, options: None | dict[str, Any] = dict()
     ) -> tuple[
-        dict[Literal["attitude", "rgba_cam", "target_deltas"], np.ndarray], dict
+        dict, dict
     ]:
         """Resets the environment.
 
@@ -397,10 +380,7 @@ class QuadXUVRZGatesAsynEnv(QuadXBaseEnv):
                 (np.array(self.gate_left_bound[0]) - lin_pos).T).T
 
         # combine everything
-        new_state: dict[
-            Literal["attitude", "target_deltas",
-                    "target_delta_bound", "updated"], Union[np.ndarray, np.int64]
-        ] = dict()
+        new_state = dict()
         if self.angle_representation == 0:
             new_state["attitude"] = np.array(
                 [*ang_vel,
@@ -429,7 +409,8 @@ class QuadXUVRZGatesAsynEnv(QuadXBaseEnv):
 
         self.state = new_state
 
-    def step(self, action: np.ndarray) -> tuple[Any, float, bool, bool, dict[str, Any]]:
+    def step(self, action: np.ndarray) -> tuple[
+            Any, Union[float, Any], bool, bool, dict[str, Any]]:
         """Steps the environment.
 
         Args:
@@ -483,7 +464,7 @@ class QuadXUVRZGatesAsynEnv(QuadXBaseEnv):
             # update the action in the frozen_obs
             self.frozen_obs['attitude'][13] = self.action
             # make the update flag to 0
-            self.frozen_obs['updated'] = 0
+            self.frozen_obs['updated'] = np.int64(0)
 
         # distance reward
         self.reward += 1.0/(self.dis_error_scalar+1)
