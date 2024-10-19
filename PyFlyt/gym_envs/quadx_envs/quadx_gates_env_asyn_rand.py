@@ -112,7 +112,7 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
         max_gate_angles: list[float] = [0.0, 0.0, 1.0],
         min_gate_distance: float = 1.0,
         max_gate_distance: float = 2.0,
-        camera_resolution: tuple[int, int] = (256, 144),
+        camera_resolution: tuple[int, int] | None = (256, 144),
         max_duration_seconds: float = 120.0,
         angle_representation: Literal["euler", "quaternion"] = "quaternion",
         agent_hz: int = 10,
@@ -150,7 +150,13 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
 
         """GYMNASIUM STUFF"""
         self.asyn = asyn
-        if self.asyn:
+        self.targets_num = targets_num
+        if self.targets_num == 0:
+            self.free_mode = True
+        else:
+            self.free_mode = False
+
+        if self.asyn and not self.free_mode:
             # 9 action space for a watch video action
             self.action_space = spaces.Discrete(9)
             self.combined_space = spaces.Box(
@@ -183,7 +189,7 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
                     "updated": spaces.Discrete(2),
                 }
             )
-        else:
+        elif not self.asyn and not self.free_mode:
             self.action_space = spaces.Discrete(8)
             self.combined_space = spaces.Box(
                 low=-np.inf,
@@ -214,28 +220,48 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
                     ),
                 }
             )
+        elif self.free_mode:
+            self.action_space = spaces.Discrete(8)
+            self.combined_space = spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(self.attitude_space.shape[0]
+                       + 5  # Action shape(1)+velocity vector shape(4)
+                       + self.auxiliary_space.shape[0],
+                       ),
+                dtype=np.float64,
+            )
+            self.observation_space = spaces.Dict(
+                {
+                    "attitude": self.combined_space,
+                }
+            )
+        else:
+            raise ValueError("Invalid mode")
 
         """ ENVIRONMENT CONSTANTS """
-        self.min_gate_height = gate_height
-        self.goal_reach_distance = goal_reach_distance
-
         self.bci = BCIsimulator(accuracy=bci_accuracy)
         self.velocity_buffer = np.zeros((action_overlap, 4))
         self.action_overlap = action_overlap
         self.step_ptr = 0
 
+        """Target related parameters"""
         file_dir = os.path.dirname(os.path.realpath(__file__))
+        self.min_gate_height = gate_height
+        self.goal_reach_distance = goal_reach_distance
         self.gate_obj_dir = os.path.join(file_dir, "../models/race_gate.urdf")
-        self.camera_resolution = camera_resolution
-        self.targets_num = targets_num
         self.max_gate_distance = max_gate_distance
         self.min_gate_distance = min_gate_distance
         self.max_gate_angles = np.array([max_gate_angles])
-
         self.targets_right_bound = list()
         self.targets_left_bound = list()
-        self.seed = seed
         self.target_reached_count = 0
+
+        """Camera related parameters"""
+        self.camera_resolution = camera_resolution
+
+        """System related parameters"""
+        self.seed = seed
         if self.asyn:
             self.frozen_obs = dict()
             self.update = 1
@@ -252,10 +278,14 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
         if seed is None:
             seed = self.seed
         aviary_options = dict()
-        aviary_options["use_camera"] = True
-        aviary_options["use_gimbal"] = False
-        aviary_options["camera_resolution"] = self.camera_resolution
-        aviary_options["camera_angle_degrees"] = 15.0
+        if self.camera_resolution is not None:
+            aviary_options["use_camera"] = True
+            aviary_options["use_gimbal"] = False
+            aviary_options["camera_resolution"] = self.camera_resolution
+            aviary_options["camera_angle_degrees"] = 15.0
+        else:
+            aviary_options["use_camera"] = False
+
         super().begin_reset(seed, options, aviary_options)
         self.action = 0
         self.velocity_vec = np.zeros((4,))
@@ -265,12 +295,13 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
         self.load_senario("samurai.urdf")
 
         """GATES GENERATION"""
-        self.gates = []
-        self.targets = []
-        self.targets_right_bound = []
-        self.targets_left_bound = []
-        self.generate_gates()
-        self.target_reached_count = 0
+        if not self.free_mode:
+            self.gates = []
+            self.targets = []
+            self.targets_right_bound = []
+            self.targets_left_bound = []
+            self.generate_gates()
+            self.target_reached_count = 0
 
         super().end_reset(seed, options)
 
@@ -414,19 +445,20 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
         rotation = np.array(p.getMatrixFromQuaternion(
             quarternion)).reshape(3, 3).T
 
-        # drone to target
-        target_deltas = np.matmul(rotation, (self.targets - lin_pos).T).T
-        self.dis_error_scalar = np.linalg.norm(target_deltas[0])
+        if not self.free_mode:
+            # drone to target
+            target_deltas = np.matmul(rotation, (self.targets - lin_pos).T).T
+            self.dis_error_scalar = np.linalg.norm(target_deltas[0])
 
-        # drone to the next gate's edge
-        target_delta_bound = np.zeros((6,))
-        if len(self.gates) > 0:
-            target_delta_bound[0:3] = np.matmul(
-                rotation,
-                (self.targets_right_bound[0] - lin_pos).T).T
-            target_delta_bound[3:6] = np.matmul(
-                rotation,
-                (self.targets_left_bound[0] - lin_pos).T).T
+            # drone to the next gate's edge
+            target_delta_bound = np.zeros((6,))
+            if len(self.gates) > 0:
+                target_delta_bound[0:3] = np.matmul(
+                    rotation,
+                    (self.targets_right_bound[0] - lin_pos).T).T
+                target_delta_bound[3:6] = np.matmul(
+                    rotation,
+                    (self.targets_left_bound[0] - lin_pos).T).T
 
         # combine everything
         new_state = dict()
@@ -453,10 +485,11 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
                  *aux_state]
             )
 
-        # distances to targets
-        new_state["target_deltas"] = target_deltas
-        new_state["target_delta_bound"] = target_delta_bound
-        if self.asyn:
+        if not self.free_mode:
+            # distances to targets
+            new_state["target_deltas"] = target_deltas
+            new_state["target_delta_bound"] = target_delta_bound
+        if self.asyn and not self.free_mode:
             new_state["updated"] = self.update
 
         self.state = new_state
@@ -509,17 +542,18 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
             self.compute_state()
             self.compute_term_trunc_reward()
 
-        if self.asyn and self.action == 8:
+        if self.asyn and self.action == 8 and not self.free_mode:
             # update the frozen_obs with the new state
             self.frozen_obs = self.state
-        elif self.asyn:
+        elif self.asyn and not self.free_mode:
             # update the action in the frozen_obs
             self.frozen_obs['attitude'][13] = self.action
             # make the update flag to 0
             self.frozen_obs['updated'] = np.int64(0)
 
         # distance reward
-        self.reward += 1.0/(self.dis_error_scalar+1)
+        if not self.free_mode:
+            self.reward += 1.0/(self.dis_error_scalar+1)
         # increment step count
         self.step_count += 1
 
@@ -539,31 +573,31 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
     def compute_term_trunc_reward(self) -> None:
         """Computes the termination, truncation, and reward of the current step."""
         super().compute_base_term_trunc_reward()
-
-        # out of range of next gate
-        if self.dis_error_scalar > 2 * self.max_gate_distance:
-            self.reward += -100.0
-            self.info["out_of_bounds"] = True
-            self.termination = self.termination or True
-
-        # target reached
-        if self.target_reached:
-            self.target_reached_count += 1
-            print(f"Target reached: {self.target_reached_count}")
-            self.reward += 100.0
-            if len(self.targets) > 1:
-                # still have targets to go
-                self.targets = self.targets[1:]
-                self.targets_left_bound = self.targets_left_bound[1:]
-                self.targets_right_bound = self.targets_right_bound[1:]
-            else:
-                self.reward += 500.0
-                self.info["env_complete"] = True
+        if not self.free_mode:
+            # out of range of next gate
+            if self.dis_error_scalar > 2 * self.max_gate_distance:
+                self.reward += -100.0
+                self.info["out_of_bounds"] = True
                 self.termination = self.termination or True
 
-            # shift the gates and recolour the reached one
-            self.colour_dead_gate(self.gates[0])
-            if len(self.gates) > 1:
-                self.gates = self.gates[1:]
-                # colour the new target
-                self.colour_first_gate()
+            # target reached
+            if self.target_reached:
+                self.target_reached_count += 1
+                print(f"Target reached: {self.target_reached_count}")
+                self.reward += 100.0
+                if len(self.targets) > 1:
+                    # still have targets to go
+                    self.targets = self.targets[1:]
+                    self.targets_left_bound = self.targets_left_bound[1:]
+                    self.targets_right_bound = self.targets_right_bound[1:]
+                else:
+                    self.reward += 500.0
+                    self.info["env_complete"] = True
+                    self.termination = self.termination or True
+
+                # shift the gates and recolour the reached one
+                self.colour_dead_gate(self.gates[0])
+                if len(self.gates) > 1:
+                    self.gates = self.gates[1:]
+                    # colour the new target
+                    self.colour_first_gate()
