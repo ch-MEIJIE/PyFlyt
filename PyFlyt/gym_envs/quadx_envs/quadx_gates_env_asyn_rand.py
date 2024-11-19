@@ -114,7 +114,7 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
         max_gate_distance: float = 2.0,
         camera_resolution: tuple[int, int] | None = (256, 144),
         max_duration_seconds: float = 120.0,
-        angle_representation: Literal["euler", "quaternion"] = "quaternion",
+        angle_representation: Literal["euler", "quaternion"] = "euler",
         agent_hz: int = 10,
         render_mode: None | Literal["human", "rgb_array"] = None,
         render_resolution: tuple[int, int] = (480, 480),
@@ -302,6 +302,7 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
             self.targets_left_bound = []
             self.generate_gates()
             self.target_reached_count = 0
+            self.info["current_target"] = self.targets[0]
 
         super().end_reset(seed, options)
 
@@ -463,6 +464,8 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
         # combine everything
         new_state = dict()
         if self.angle_representation == 0:
+            # 0:3 ang_vel, 3:6 euler angle, 6:9 lin_vel, 9:12 lin_pos
+            # 12 action, 13:17 velocity_vec, 17:21 aux_state
             new_state["attitude"] = np.array(
                 [*ang_vel,
                  *ang_pos,
@@ -588,6 +591,7 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
                 if len(self.targets) > 1:
                     # still have targets to go
                     self.targets = self.targets[1:]
+                    self.info["current_target"] = self.targets[0]
                     self.targets_left_bound = self.targets_left_bound[1:]
                     self.targets_right_bound = self.targets_right_bound[1:]
                 else:
