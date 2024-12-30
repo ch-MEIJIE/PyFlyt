@@ -586,7 +586,7 @@ class QuadXUVRZGatesRandEnv(QuadXBaseEnv):
             # target reached
             if self.target_reached:
                 self.target_reached_count += 1
-                print(f"Target reached: {self.target_reached_count}")
+                # print(f"Target reached: {self.target_reached_count}")
                 self.reward += 100.0
                 if len(self.targets) > 1:
                     # still have targets to go
