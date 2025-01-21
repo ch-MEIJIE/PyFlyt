@@ -11,7 +11,7 @@ import pybullet as p
 import pybullet_data
 from gymnasium import spaces
 from scipy.stats import norm
-from stable_baselines3.common.env_checker import check_env
+# from stable_baselines3.common.env_checker import check_env
 
 from PyFlyt.gym_envs.quadx_envs.quadx_base_env import QuadXBaseEnv
 
@@ -521,17 +521,17 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
 
             # constant action reward
             if self.last_action == self.action:
-                self.reward += 0.5
+                self.reward += 2
 
             # distance reward
             # self.reward += 1.0/(self.dis_error_scalar+1)*5
-            distance_reward = (self.last_distance - self.dis_error_scalar) * 10.0
+            distance_reward = (self.last_distance - self.dis_error_scalar)
 
             # angle reward
             angle_reward = np.cos(self.delta_angle) ** 2
             if self.delta_angle > np.pi/3:
                 angle_reward -= 2.0*(self.delta_angle - np.pi/3)/np.pi
-            self.reward += distance_reward + angle_reward
+            self.reward += 25 * distance_reward + 2 * angle_reward
 
             # target reached
             if self.target_reached:
@@ -567,4 +567,4 @@ if __name__ == "__main__":
         agent_hz=2,
         seed=0,
     )
-    check_env(env=env, warn=True, skip_render_check=True)
+    # check_env(env=env, warn=True, skip_render_check=True)
