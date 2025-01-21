@@ -4,6 +4,8 @@ from __future__ import annotations
 import copy
 import math
 import os
+import random
+import time
 from typing import Any, Literal, Union
 
 import numpy as np
@@ -27,6 +29,18 @@ ACTIONS = {
     "6": [0.0, 0.0, 0.0, 0.0],   # Hover
     "7": [0.0, 0.0, 0.0, 0.0],   # Keep
 }
+
+
+def seed_all(seed=None):
+    """
+    Set the torch, numpy, and random module seeds based on the seed
+    specified in config. If there is no seed or it is None, a time-based
+    seed is used instead and is written to config.
+    """
+    # Default uses current time in milliseconds, modulo 1e9
+    if seed is not None:
+        np.random.seed(seed)
+        random.seed(seed)
 
 
 class BCIsimulator():
@@ -147,7 +161,7 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
             render_mode=render_mode,
             render_resolution=render_resolution,
         )
-
+        seed_all(seed)
         """GYMNASIUM STUFF"""
         self.targets_num = targets_num
         if self.targets_num == 0:
@@ -463,7 +477,7 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         """
         # unsqueeze the action to be usable in aviary
 
-        self.action = action.copy()
+        self.action = action
         self.bci.encode(self.action)
         velocity_mapped = self.bci.decode()
         if velocity_mapped is not None:
