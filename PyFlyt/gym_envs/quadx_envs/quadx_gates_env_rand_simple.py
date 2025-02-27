@@ -297,7 +297,7 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         distences = np.random.uniform(
             self.min_gate_distance, self.max_gate_distance, size=(self.targets_num, ))
         angles = np.random.uniform(
-            -0.5*np.pi, 0.5*np.pi, size=(self.targets_num, 3))
+            -np.pi, np.pi, size=(self.targets_num, 3))
         angles = np.multiply(angles, self.max_gate_angles)
 
         # starting position and angle
