@@ -5,7 +5,6 @@ import copy
 import math
 import os
 import random
-import time
 from typing import Any, Literal, Union
 
 import numpy as np
@@ -13,8 +12,8 @@ import pybullet as p
 import pybullet_data
 from gymnasium import spaces
 from scipy.stats import norm
-# from stable_baselines3.common.env_checker import check_env
 
+# from stable_baselines3.common.env_checker import check_env
 from PyFlyt.gym_envs.quadx_envs.quadx_base_env import QuadXBaseEnv
 
 ACTIONS = {
@@ -284,6 +283,9 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         super().end_reset(seed, options)
         self.last_action = self.action
         self.last_distance = self.dis_error_scalar
+        # Variables for computing path efficiency
+        self.initial_distance = self.dis_error_scalar
+        self.cumulative_distance = 0
 
         return self.state, self.info
 
@@ -491,7 +493,7 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         self.velocity_vec = sum_velocity
 
         # reset the reward and set the action
-        self.reward = -0.001*self.step_count
+        self.reward = -0.005*self.step_count
         # self.reward = 0
         self.env.set_setpoint(0, setpoint=self.velocity_vec)
 
@@ -539,13 +541,16 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
 
             # distance reward
             # self.reward += 1.0/(self.dis_error_scalar+1)*5
-            distance_reward = (self.last_distance - self.dis_error_scalar)
+            step_distance = (self.last_distance - self.dis_error_scalar)
+            self.cumulative_distance += step_distance
+            efficiency = self.initial_distance / (self.cumulative_distance + 1e-6)
+            efficiency_reward = 1 - min(1, efficiency)
 
             # angle reward
             angle_reward = np.cos(self.delta_angle) ** 2
             if self.delta_angle > np.pi/3:
                 angle_reward -= 2.0*(self.delta_angle - np.pi/3)/np.pi
-            self.reward += 25 * distance_reward + 2 * angle_reward
+            self.reward += 20 * step_distance + 2 * angle_reward - 10 * efficiency_reward
 
             # target reached
             if self.target_reached:
