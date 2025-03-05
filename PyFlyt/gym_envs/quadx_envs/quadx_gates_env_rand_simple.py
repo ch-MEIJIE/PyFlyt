@@ -547,11 +547,8 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
             fly_dist = np.linalg.norm(self.state["attitude"][6:9] - self.last_pos)
             self.last_pos = self.state["attitude"][6:9]
             self.cumulative_distance += fly_dist
-            print(f"******Cumulative Distance: {self.cumulative_distance}******")
             efficiency = self.initial_distance / (self.cumulative_distance + 1e-6)
-            print(f"******Efficiency: {efficiency}******")
             efficiency_reward = 1 - min(1, efficiency)
-            print(f"******Efficiency Reward: {efficiency_reward}******")
 
             # angle reward
             angle_reward = np.cos(self.delta_angle) ** 2
