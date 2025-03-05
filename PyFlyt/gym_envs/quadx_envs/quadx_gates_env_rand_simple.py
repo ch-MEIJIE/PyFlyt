@@ -286,6 +286,7 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         # Variables for computing path efficiency
         self.initial_distance = self.dis_error_scalar
         self.cumulative_distance = 0
+        self.last_pos = self.state["attitude"][6:9]
 
         return self.state, self.info
 
@@ -542,9 +543,15 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
             # distance reward
             # self.reward += 1.0/(self.dis_error_scalar+1)*5
             step_distance = (self.last_distance - self.dis_error_scalar)
-            self.cumulative_distance += step_distance
+            # fly distance
+            fly_dist = np.linalg.norm(self.state["attitude"][6:9] - self.last_pos)
+            self.last_pos = self.state["attitude"][6:9]
+            self.cumulative_distance += fly_dist
+            print(f"******Cumulative Distance: {self.cumulative_distance}******")
             efficiency = self.initial_distance / (self.cumulative_distance + 1e-6)
+            print(f"******Efficiency: {efficiency}******")
             efficiency_reward = 1 - min(1, efficiency)
+            print(f"******Efficiency Reward: {efficiency_reward}******")
 
             # angle reward
             angle_reward = np.cos(self.delta_angle) ** 2
@@ -586,4 +593,16 @@ if __name__ == "__main__":
         agent_hz=2,
         seed=0,
     )
-    # check_env(env=env, warn=True, skip_render_check=True)
+
+    obs, info = env.reset()
+    # wait an input action
+    while True:
+        action = input("Enter an action: ")
+        # convert action to numpy array
+        action = np.array(action, dtype=np.int64)
+        obs, reward, done, truncated, info = env.step(action)
+        # print(f"Observation: {obs}")
+        print(f"Reward: {reward}")
+        # print(f"Done: {done}")
+        # print(f"Truncated: {truncated}")
+        # print(f"Info: {info}")
