@@ -582,24 +582,27 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
 
 if __name__ == "__main__":
     # set global seed
-    np.random.seed(0)
     env = QuadXGateRandSimpleEnv(
-        render_mode="human",
+        render_mode=None,
         bci_accuracy=0.99,
         targets_num=1,
         agent_hz=2,
-        seed=0,
+        seed=42,
     )
 
-    obs, info = env.reset()
-    # wait an input action
-    while True:
-        action = input("Enter an action: ")
-        # convert action to numpy array
-        action = np.array(action, dtype=np.int64)
-        obs, reward, done, truncated, info = env.step(action)
-        # print(f"Observation: {obs}")
-        print(f"Reward: {reward}")
-        # print(f"Done: {done}")
-        # print(f"Truncated: {truncated}")
-        # print(f"Info: {info}")
+    seed = 42
+    for _ in range(10):
+        obs, info = env.reset()
+        gate_pos, _, _ = env.get_current_gate()
+        print(f"Gate position: {gate_pos}")
+        # wait an input action
+        # while True:
+        #     action = input("Enter an action: ")
+    #     # convert action to numpy array
+    #     action = np.array(action, dtype=np.int64)
+    #     obs, reward, done, truncated, info = env.step(action)
+    #     # print(f"Observation: {obs}")
+    #     print(f"Reward: {reward}")
+    #     # print(f"Done: {done}")
+    #     # print(f"Truncated: {truncated}")
+    #     # print(f"Info: {info}")
