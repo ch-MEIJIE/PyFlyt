@@ -284,6 +284,8 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         super().end_reset(seed, options)
         self.last_action = self.action
         self.last_distance = self.dis_error_scalar
+        if self.camera_resolution is not None:
+            self.info['image'] = self.env.drones[0].rgbaImg.astype(np.uint8)
 
         return self.state, self.info
 
@@ -512,6 +514,10 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
 
         # increment step count
         self.step_count += 1
+
+        if self.camera_resolution is not None:
+            self.info['image'] = self.env.drones[0].rgbaImg.astype(np.uint8)
+            self.info['vel_vec'] = self.velocity_vec
 
         return self.state, self.reward, self.termination, self.truncation, self.info
 
