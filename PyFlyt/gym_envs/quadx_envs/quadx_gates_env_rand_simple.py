@@ -5,7 +5,6 @@ import copy
 import math
 import os
 import random
-import time
 from typing import Any, Literal, Union
 
 import numpy as np
@@ -13,8 +12,8 @@ import pybullet as p
 import pybullet_data
 from gymnasium import spaces
 from scipy.stats import norm
-# from stable_baselines3.common.env_checker import check_env
 
+# from stable_baselines3.common.env_checker import check_env
 from PyFlyt.gym_envs.quadx_envs.quadx_base_env import QuadXBaseEnv
 
 ACTIONS = {
@@ -286,6 +285,10 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         self.last_distance = self.dis_error_scalar
         if self.camera_resolution is not None:
             self.info['image'] = self.env.drones[0].rgbaImg.astype(np.uint8)
+        # Variables for computing path efficiency
+        self.initial_distance = self.dis_error_scalar
+        self.cumulative_distance = 0
+        self.last_pos = self.state["attitude"][6:9]
 
         return self.state, self.info
 
@@ -299,7 +302,7 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         distences = np.random.uniform(
             self.min_gate_distance, self.max_gate_distance, size=(self.targets_num, ))
         angles = np.random.uniform(
-            -0.5*np.pi, 0.5*np.pi, size=(self.targets_num, 3))
+            -np.pi, np.pi, size=(self.targets_num, 3))
         angles = np.multiply(angles, self.max_gate_angles)
 
         # starting position and angle
@@ -493,7 +496,7 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
         self.velocity_vec = sum_velocity
 
         # reset the reward and set the action
-        self.reward = -0.001*self.step_count
+        self.reward = -0.005*self.step_count
         # self.reward = 0
         self.env.set_setpoint(0, setpoint=self.velocity_vec)
 
@@ -545,13 +548,19 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
 
             # distance reward
             # self.reward += 1.0/(self.dis_error_scalar+1)*5
-            distance_reward = (self.last_distance - self.dis_error_scalar)
+            step_distance = (self.last_distance - self.dis_error_scalar)
+            # fly distance
+            fly_dist = np.linalg.norm(self.state["attitude"][6:9] - self.last_pos)
+            self.last_pos = self.state["attitude"][6:9]
+            self.cumulative_distance += fly_dist
+            efficiency = self.initial_distance / (self.cumulative_distance + 1e-6)
+            efficiency_reward = 1 - min(1, efficiency)
 
             # angle reward
             angle_reward = np.cos(self.delta_angle) ** 2
             if self.delta_angle > np.pi/3:
                 angle_reward -= 2.0*(self.delta_angle - np.pi/3)/np.pi
-            self.reward += 25 * distance_reward + 2 * angle_reward
+            self.reward += 20 * step_distance + 2 * angle_reward - 10 * efficiency_reward
 
             # target reached
             if self.target_reached:
@@ -579,12 +588,27 @@ class QuadXGateRandSimpleEnv(QuadXBaseEnv):
 
 if __name__ == "__main__":
     # set global seed
-    np.random.seed(0)
     env = QuadXGateRandSimpleEnv(
-        render_mode="human",
+        render_mode=None,
         bci_accuracy=0.99,
         targets_num=1,
         agent_hz=2,
-        seed=0,
+        seed=42,
     )
-    # check_env(env=env, warn=True, skip_render_check=True)
+
+    seed = 42
+    for _ in range(10):
+        obs, info = env.reset()
+        gate_pos, _, _ = env.get_current_gate()
+        print(f"Gate position: {gate_pos}")
+        # wait an input action
+        # while True:
+        #     action = input("Enter an action: ")
+    #     # convert action to numpy array
+    #     action = np.array(action, dtype=np.int64)
+    #     obs, reward, done, truncated, info = env.step(action)
+    #     # print(f"Observation: {obs}")
+    #     print(f"Reward: {reward}")
+    #     # print(f"Done: {done}")
+    #     # print(f"Truncated: {truncated}")
+    #     # print(f"Info: {info}")
